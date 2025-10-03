@@ -1,0 +1,30 @@
+/**
+ * Admin styles for SEO & Open Graph Manager
+ */
+
+.seoog-admin .nav-tab-wrapper {
+	margin-bottom: 20px;
+}
+
+.seoog-admin .form-table th {
+	width: 250px;
+	font-weight: 600;
+}
+
+.seoog-admin .form-table td {
+	padding: 15px 10px;
+}
+
+.seoog-admin .form-table .description {
+	margin-top: 8px;
+	color: #646970;
+	font-style: italic;
+}
+
+#seoog_meta_box .form-table th {
+	width: 200px;
+}
+
+#seoog_meta_box .form-table td {
+	padding: 10px;
+}
