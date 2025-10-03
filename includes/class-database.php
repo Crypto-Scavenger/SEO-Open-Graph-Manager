@@ -23,13 +23,6 @@ class SEOOG_Database {
 	private $settings_cache = null;
 
 	/**
-	 * Whether table exists check has been performed
-	 *
-	 * @var bool|null
-	 */
-	private $table_verified = null;
-
-	/**
 	 * Get table name
 	 *
 	 * @return string
@@ -40,67 +33,32 @@ class SEOOG_Database {
 	}
 
 	/**
-	 * Ensure table exists before operations
-	 *
-	 * @return bool True if table exists or was created, false otherwise
+	 * Activate plugin
 	 */
-	private function ensure_table_exists() {
-		if ( true === $this->table_verified ) {
-			return true;
-		}
-
+	public static function activate() {
 		global $wpdb;
-		$table_name = $this->get_table_name();
 		
-		$table_exists = $wpdb->get_var( $wpdb->prepare(
-			'SHOW TABLES LIKE %s',
-			$table_name
-		) );
-
-		if ( $table_name === $table_exists ) {
-			$this->table_verified = true;
-			return true;
-		}
-
-		// Table doesn't exist, create it
+		$table_name = $wpdb->prefix . SEOOG_TABLE_SETTINGS;
 		$charset_collate = $wpdb->get_charset_collate();
 		
-		$sql = $wpdb->prepare(
-			'CREATE TABLE IF NOT EXISTS %i (
-				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-				setting_key varchar(191) NOT NULL,
-				setting_value longtext,
-				PRIMARY KEY (id),
-				UNIQUE KEY setting_key (setting_key)
-			) %s',
-			$table_name,
-			$charset_collate
-		);
+		// Prepare the table name separately since it needs identifier escaping
+		$prepared_table = $wpdb->prepare( '%i', $table_name );
+		
+		// Build the full SQL with charset_collate concatenated (not as a parameter)
+		$sql = "CREATE TABLE IF NOT EXISTS {$prepared_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			setting_key varchar(191) NOT NULL,
+			setting_value longtext,
+			PRIMARY KEY (id),
+			UNIQUE KEY setting_key (setting_key)
+		) {$charset_collate}";
 		
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 		
-		// Verify creation
-		$table_exists = $wpdb->get_var( $wpdb->prepare(
-			'SHOW TABLES LIKE %s',
-			$table_name
-		) );
-
-		if ( $table_name === $table_exists ) {
-			$this->table_verified = true;
-			$this->initialize_defaults();
-			return true;
-		}
-
-		return false;
-	}
-
-	/**
-	 * Activate plugin
-	 */
-	public static function activate() {
+		// Set defaults
 		$instance = new self();
-		$instance->ensure_table_exists();
+		$instance->initialize_defaults();
 		
 		// Flush rewrite rules for sitemap
 		flush_rewrite_rules();
@@ -148,15 +106,12 @@ class SEOOG_Database {
 	 * @return mixed
 	 */
 	public function get_setting( $key, $default = false ) {
-		if ( ! $this->ensure_table_exists() ) {
-			return $default;
-		}
-
 		global $wpdb;
+		
 		$table = $this->get_table_name();
 		
 		$value = $wpdb->get_var( $wpdb->prepare(
-			'SELECT setting_value FROM %i WHERE setting_key = %s',
+			"SELECT setting_value FROM %i WHERE setting_key = %s",
 			$table,
 			$key
 		) );
@@ -177,20 +132,16 @@ class SEOOG_Database {
 		if ( null !== $this->settings_cache ) {
 			return $this->settings_cache;
 		}
-
-		if ( ! $this->ensure_table_exists() ) {
-			return array();
-		}
 		
 		global $wpdb;
 		$table = $this->get_table_name();
 		
 		$results = $wpdb->get_results( $wpdb->prepare(
-			'SELECT setting_key, setting_value FROM %i',
+			"SELECT setting_key, setting_value FROM %i",
 			$table
 		) );
 		
-		if ( ! is_array( $results ) ) {
+		if ( false === $results ) {
 			return array();
 		}
 		
@@ -211,13 +162,9 @@ class SEOOG_Database {
 	 * @return bool
 	 */
 	public function save_setting( $key, $value ) {
-		if ( ! $this->ensure_table_exists() ) {
-			return false;
-		}
-
 		global $wpdb;
-		$table = $this->get_table_name();
 		
+		$table = $this->get_table_name();
 		$result = $wpdb->replace(
 			$table,
 			array(
@@ -244,13 +191,9 @@ class SEOOG_Database {
 	 * @return bool
 	 */
 	public function delete_setting( $key ) {
-		if ( ! $this->ensure_table_exists() ) {
-			return false;
-		}
-
 		global $wpdb;
-		$table = $this->get_table_name();
 		
+		$table = $this->get_table_name();
 		$result = $wpdb->delete(
 			$table,
 			array( 'setting_key' => $key ),
